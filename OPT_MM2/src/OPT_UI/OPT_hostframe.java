@@ -21,6 +21,7 @@ public class OPT_hostframe extends javax.swing.JFrame {
     private CMMCore core_ = null;   
     Gson gson = new GsonBuilder().create();
     FileWriter fw;
+    boolean aborted = false;
     
     /**
      * Creates new form OPT_hostframe
@@ -43,7 +44,10 @@ public class OPT_hostframe extends javax.swing.JFrame {
         gui_ = gui_ref;
         core_ = gui_.getCMMCore();
         initComponents();
-        rotation_control1.calc_numproj_options();
+        //Pass reference to this frame to children to allow callbacks
+        rotation_control1.initialise(frame_);
+        save_details1.initialise(frame_);
+        abort1.initialise(frame_);
     }
 
     /**
@@ -56,6 +60,8 @@ public class OPT_hostframe extends javax.swing.JFrame {
     private void initComponents() {
 
         rotation_control1 = new OPT_UI.Rotation_control();
+        save_details1 = new OPT_UI.Save_details();
+        abort1 = new OPT_UI.Abort();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -64,14 +70,21 @@ public class OPT_hostframe extends javax.swing.JFrame {
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
+                .addComponent(save_details1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, Short.MAX_VALUE))
+            .addGroup(layout.createSequentialGroup()
                 .addComponent(rotation_control1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 212, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(abort1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(rotation_control1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 201, Short.MAX_VALUE))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(rotation_control1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(abort1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(save_details1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
         pack();
@@ -113,6 +126,8 @@ public class OPT_hostframe extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private OPT_UI.Abort abort1;
     private OPT_UI.Rotation_control rotation_control1;
+    private OPT_UI.Save_details save_details1;
     // End of variables declaration//GEN-END:variables
 }

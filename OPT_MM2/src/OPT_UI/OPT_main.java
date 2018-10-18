@@ -32,7 +32,7 @@ public class OPT_main  implements MenuPlugin, SciJavaPlugin{
 
     @Override
     public void onPluginSelected() {
-        //System.out.println("Tada!");
+        System.out.println("Starting OPT plugin for Micro-manager 2");
         frame_ = new OPT_UI.OPT_hostframe(gui_);
         frame_.show();
     }
