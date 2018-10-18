@@ -5,6 +5,9 @@
  */
 package OPT_UI;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 /**
  *
  * @author Fogim
@@ -24,6 +27,10 @@ public class Rotation_control extends javax.swing.JPanel {
     public void initialise(OPT_hostframe parent_ref){
         parent_ = parent_ref;
         calc_numproj_options();
+    }
+    
+    public int get_numproj(){
+        return Integer.parseInt(num_proj.getSelectedItem().toString());
     }
     
     public void calc_numproj_options(){
@@ -83,6 +90,11 @@ public class Rotation_control extends javax.swing.JPanel {
         });
 
         run_calib.setText("Calibration");
+        run_calib.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                run_calibActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
@@ -129,8 +141,16 @@ public class Rotation_control extends javax.swing.JPanel {
     }//GEN-LAST:event_steps_per_revActionPerformed
 
     private void run_acqActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_run_acqActionPerformed
-        // TODO add your handling code here:
+        try {
+            parent_.run_acquisition();
+        } catch (Exception ex) {
+            Logger.getLogger(Rotation_control.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }//GEN-LAST:event_run_acqActionPerformed
+
+    private void run_calibActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_run_calibActionPerformed
+        parent_.run_calibration();
+    }//GEN-LAST:event_run_calibActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

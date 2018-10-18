@@ -5,18 +5,39 @@
  */
 package OPT_UI;
 
+import java.awt.Color;
+
 /**
  *
  * @author kumars2
  */
-public class Abort extends javax.swing.JPanel {
+public class progress_indicator extends javax.swing.JPanel {
 
-    OPT_hostframe parent_;
     /**
-     * Creates new form Abort
+     * Creates new form progress_indicator
      */
-    public Abort() {
+    public progress_indicator() {
         initComponents();
+    }
+    
+    public void set_progress(int progress){
+        progressbar.setValue(progress);
+    }
+    
+    public void set_working(boolean working){
+        //stripy bar for indeterminate progress like in calibration
+        progressbar.setIndeterminate(working);
+        progressbar.setStringPainted(!working);
+    }    
+    
+    public void set_aborted (boolean aborted){
+        if (aborted){
+            progressbar.setStringPainted(true);
+            progressbar.setForeground(Color.red);
+        } else {
+            progressbar.setStringPainted(true);
+            progressbar.setForeground(Color.blue);
+        }
     }
 
     /**
@@ -28,38 +49,22 @@ public class Abort extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        abort = new javax.swing.JButton();
-
-        abort.setText("ABORT");
-        abort.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                abortActionPerformed(evt);
-            }
-        });
+        progressbar = new javax.swing.JProgressBar();
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(abort)
+            .addComponent(progressbar, javax.swing.GroupLayout.PREFERRED_SIZE, 250, javax.swing.GroupLayout.PREFERRED_SIZE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(abort)
+            .addComponent(progressbar, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
         );
     }// </editor-fold>//GEN-END:initComponents
 
-    private void abortActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_abortActionPerformed
-        parent_.abort();
-        abort.setSelected(false);
-        // TODO add your handling code here:
-    }//GEN-LAST:event_abortActionPerformed
 
-    public void initialise(OPT_hostframe parent_ref){
-        parent_ = parent_ref;
-    }   
-    
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton abort;
+    private javax.swing.JProgressBar progressbar;
     // End of variables declaration//GEN-END:variables
 }

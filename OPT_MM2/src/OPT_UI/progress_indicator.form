@@ -16,23 +16,17 @@
   <Layout>
     <DimensionLayout dim="0">
       <Group type="103" groupAlignment="0" attributes="0">
-          <Component id="abort" min="-2" max="-2" attributes="0"/>
+          <Component id="progressbar" min="-2" pref="250" max="-2" attributes="0"/>
       </Group>
     </DimensionLayout>
     <DimensionLayout dim="1">
       <Group type="103" groupAlignment="0" attributes="0">
-          <Component id="abort" min="-2" max="-2" attributes="0"/>
+          <Component id="progressbar" min="-2" pref="25" max="-2" attributes="0"/>
       </Group>
     </DimensionLayout>
   </Layout>
   <SubComponents>
-    <Component class="javax.swing.JButton" name="abort">
-      <Properties>
-        <Property name="text" type="java.lang.String" value="ABORT"/>
-      </Properties>
-      <Events>
-        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="abortActionPerformed"/>
-      </Events>
+    <Component class="javax.swing.JProgressBar" name="progressbar">
     </Component>
   </SubComponents>
 </Form>
