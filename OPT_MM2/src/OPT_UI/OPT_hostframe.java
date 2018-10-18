@@ -7,6 +7,8 @@ package OPT_UI;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import ij.process.ImageProcessor;
+import java.awt.Color;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -18,9 +20,13 @@ import org.micromanager.Studio;
 import org.micromanager.data.Coords;
 import org.micromanager.data.Image;
 import org.micromanager.data.Datastore;
+import org.micromanager.data.Metadata;
+import org.micromanager.data.ImageJConverter;
 import org.micromanager.data.RewritableDatastore;
 import org.micromanager.display.DisplaySettings;
 import org.micromanager.display.DisplayWindow;
+//import org.micromanager.display.DisplaySettings.DisplaySettingsBuilder;
+import org.micromanager.internal.utils.ImageUtils;
 
 /**
  *
@@ -173,18 +179,36 @@ public class OPT_hostframe extends javax.swing.JFrame {
         RewritableDatastore store = gui_.data().createRewritableRAMDatastore();
         DisplayWindow calib_display = gui_.displays().createDisplay(store);
         Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
+        builder.channel(2);
         Coords coords = builder.build();      
         int l_r = 0;
         Image curr_img;
         System.out.println("init_calib");
+        DisplaySettings cds = calib_display.getDisplaySettings();
+        DisplaySettings.DisplaySettingsBuilder dsb = cds.copy();
+        dsb.channelColorMode(DisplaySettings.ColorMode.COLOR);
+        Color[] chan_cols = new Color[] {Color.RED,Color.GREEN};
+        dsb.channelColors(chan_cols);
         while(aborted_ == false){
-            coords = coords.copy().z(l_r%2).build();
+            coords = coords.copy().channel(l_r%2).build();
             double oldpos = core_.getPosition();
             core_.setPosition(oldpos+(rotation_control1.steps_per_revolution/2));
             //core_.waitForDevice("RotStage");
             core_.snapImage();
             //convertTaggedImage takes (IMG/COORDS/METADATA)
             curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
+            //
+            
+            if(l_r%2==0){
+                int width = curr_img.getWidth();
+                int height = curr_img.getHeight();
+                int ijType = curr_img.getImageJPixelType();
+                ImageProcessor proc = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
+                proc.flipHorizontal();
+                Metadata MD = curr_img.getMetadata();
+                curr_img = gui_.data().getImageJConverter().createImage(proc, coords, MD);
+            }
+            
             store.putImage(curr_img);
             l_r += 1;
         }
