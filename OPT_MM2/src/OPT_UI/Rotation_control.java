@@ -149,7 +149,11 @@ public class Rotation_control extends javax.swing.JPanel {
     }//GEN-LAST:event_run_acqActionPerformed
 
     private void run_calibActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_run_calibActionPerformed
-        parent_.run_calibration();
+        try {
+            parent_.run_calibration_threaded();
+        } catch (Exception ex) {
+            Logger.getLogger(Rotation_control.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }//GEN-LAST:event_run_calibActionPerformed
 
 

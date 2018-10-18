@@ -18,6 +18,8 @@ import org.micromanager.Studio;
 import org.micromanager.data.Coords;
 import org.micromanager.data.Image;
 import org.micromanager.data.Datastore;
+import org.micromanager.data.RewritableDatastore;
+import org.micromanager.display.DisplaySettings;
 import org.micromanager.display.DisplayWindow;
 
 /**
@@ -31,6 +33,8 @@ public class OPT_hostframe extends javax.swing.JFrame {
     Gson gson = new GsonBuilder().create();
     FileWriter fw;
     boolean aborted_ = false;
+    
+    public Thread calibThread;
     
     /**
      * Creates new form OPT_hostframe
@@ -78,6 +82,7 @@ public class OPT_hostframe extends javax.swing.JFrame {
     }
     
     public void reset_abort(){
+        set_working(false);
         progress_indicator1.set_aborted(false);
         aborted_ = false;
     }
@@ -101,17 +106,32 @@ public class OPT_hostframe extends javax.swing.JFrame {
         gui_.live().setLiveMode(false);
         
         //Make a datastore/window for the acquisition
-        String dir = "C:\\TMP\\MMtest\\";
-        String file = "X";
-        String type = ".tif";
-        String fullpath  = dir+file+type;
+        //###NEED TO FIX THE FORCED-PATH CASE
+        String basedir = save_details1.get_savepath();
+        String samplename = save_details1.get_samplename();
+        String savedetails = save_details1.get_savechoice();
+        System.out.println(savedetails);
+        String filterset = "XFP";
+        String fullpath = "";
+        if (savedetails.equalsIgnoreCase("Auto-path")){
+            fullpath = basedir+"\\"+samplename+"\\"+filterset;
+        } else {
+            System.out.println("Forcepath");
+        }
+        String append = "\\X";
         File saveloc = new File(fullpath);
         while(saveloc.exists()){
-            file = file + "X";
-            fullpath  = dir+file+type;
+            System.out.println(fullpath);
+            if (savedetails.equalsIgnoreCase("Auto-path")){
+                fullpath = basedir+"\\"+samplename+"\\"+filterset+append;
+            } else {
+                fullpath = basedir+append;
+            }
+            append = append+"X";
             saveloc = new File(fullpath);
+            saveloc.mkdirs();
         }
-        Datastore store = gui_.data().createRAMDatastore();
+        Datastore store = gui_.data().createSinglePlaneTIFFSeriesDatastore(fullpath);
         DisplayWindow OPT_display = gui_.displays().createDisplay(store);
         Image curr_img;
         int stepsize = (rotation_control1.steps_per_revolution/rotation_control1.get_numproj());
@@ -130,7 +150,7 @@ public class OPT_hostframe extends javax.swing.JFrame {
                 //convertTaggedImage takes (IMG/COORDS/METADATA)
                 curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
                 store.putImage(curr_img);
-                //gui_.displays().
+                OPT_display.getAsWindow().repaint();
             }
         }
         store.freeze();
@@ -140,18 +160,37 @@ public class OPT_hostframe extends javax.swing.JFrame {
         //If not aborted, save data
     }
     
-    public void run_calibration(){
-        set_working(true);
-        //Disable 
+    public void run_calibration_threaded() {                                                    
+    // starts sequence in new thread
+        calibThread = new Thread(new Calibrationthread(this));
+        calibThread.start();
+    }      
+    
+    public void run_calibration() throws Exception{
         //Kill live mode if running
-        //Make a datastore/window for the calibation
-        //Loop
-            //Check abort
-            //Snap image
-            //Step rotation ("Z")
-            //
-        //If aborted, continue rotation to original position directly
-        //Reset abort        
+        gui_.live().setLiveMode(false);
+        set_working(true);
+        RewritableDatastore store = gui_.data().createRewritableRAMDatastore();
+        DisplayWindow calib_display = gui_.displays().createDisplay(store);
+        Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
+        Coords coords = builder.build();      
+        int l_r = 0;
+        Image curr_img;
+        System.out.println("init_calib");
+        while(aborted_ == false){
+            coords = coords.copy().z(l_r%2).build();
+            double oldpos = core_.getPosition();
+            core_.setPosition(oldpos+(rotation_control1.steps_per_revolution/2));
+            //core_.waitForDevice("RotStage");
+            core_.snapImage();
+            //convertTaggedImage takes (IMG/COORDS/METADATA)
+            curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
+            store.putImage(curr_img);
+            l_r += 1;
+        }
+        store.deleteAllImages();
+        calib_display.forceClosed();
+        reset_abort();
     }
 
     /**

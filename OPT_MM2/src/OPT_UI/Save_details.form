@@ -78,7 +78,7 @@
     </Component>
     <Component class="javax.swing.JTextField" name="save_path">
       <Properties>
-        <Property name="text" type="java.lang.String" value="C:\u005c" containsInvalidXMLChars="true"/>
+        <Property name="text" type="java.lang.String" value="C:\u005cTMP\u005cMMtest" containsInvalidXMLChars="true"/>
       </Properties>
     </Component>
     <Component class="javax.swing.JTextField" name="sample_name">
