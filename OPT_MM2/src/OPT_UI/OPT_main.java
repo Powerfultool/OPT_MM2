@@ -27,7 +27,7 @@ public class OPT_main  implements MenuPlugin, SciJavaPlugin{
     
     @Override
     public String getSubMenu() {
-        return("Acquisition Tools");
+        return("OPT");
     }
 
     @Override

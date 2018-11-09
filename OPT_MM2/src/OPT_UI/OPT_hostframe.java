@@ -7,13 +7,18 @@ package OPT_UI;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import ij.ImagePlus;
+import ij.process.ByteProcessor;
+import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
+import ij.process.ShortProcessor;
 import java.awt.Color;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import org.micromanager.Studio;
 
@@ -39,6 +44,12 @@ public class OPT_hostframe extends javax.swing.JFrame {
     Gson gson = new GsonBuilder().create();
     FileWriter fw;
     boolean aborted_ = false;
+    boolean calib_running = false;
+    DisplayWindow calib_display;
+    ImagePlus calib_implus;
+    ColorProcessor calib_RGBproc;
+    ShortProcessor calib_shortproc;
+    ByteProcessor calib_byteproc;
     
     public Thread calibThread;
     
@@ -77,6 +88,7 @@ public class OPT_hostframe extends javax.swing.JFrame {
     }
     
     public void abort(){
+        calib_running = false;
         progress_indicator1.set_working(false);
         //Set to 100%, or leave at progress when aborted?
         //progress_indicator1.set_progress(100);
@@ -84,6 +96,7 @@ public class OPT_hostframe extends javax.swing.JFrame {
         aborted_ = true;
         //Maybe go live?
         gui_.live().setLiveMode(true);
+        calib_display.requestToClose();
         //###Reenable acq and calib buttons here
     }
     
@@ -140,7 +153,7 @@ public class OPT_hostframe extends javax.swing.JFrame {
         Datastore store = gui_.data().createSinglePlaneTIFFSeriesDatastore(fullpath);
         DisplayWindow OPT_display = gui_.displays().createDisplay(store);
         Image curr_img;
-        int stepsize = (rotation_control1.steps_per_revolution/rotation_control1.get_numproj());
+        int stepsize = (rotation_control1.zdist_per_revolution/rotation_control1.get_numproj());
         
         for(int pos = 0; pos<numproj; pos++){
             if(aborted_){
@@ -151,7 +164,7 @@ public class OPT_hostframe extends javax.swing.JFrame {
                 coords = coords.copy().z(pos).build();
                 double oldpos = core_.getPosition();
                 core_.setPosition(oldpos+stepsize);
-                //core_.waitForDevice("RotStage");
+                core_.waitForDevice("RotStage");
                 core_.snapImage();
                 //convertTaggedImage takes (IMG/COORDS/METADATA)
                 curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
@@ -173,48 +186,60 @@ public class OPT_hostframe extends javax.swing.JFrame {
     }      
     
     public void run_calibration() throws Exception{
-        //Kill live mode if running
-        gui_.live().setLiveMode(false);
-        set_working(true);
-        RewritableDatastore store = gui_.data().createRewritableRAMDatastore();
-        DisplayWindow calib_display = gui_.displays().createDisplay(store);
-        Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
-        builder.channel(2);
-        Coords coords = builder.build();      
-        int l_r = 0;
-        Image curr_img;
-        System.out.println("init_calib");
-        DisplaySettings cds = calib_display.getDisplaySettings();
-        DisplaySettings.DisplaySettingsBuilder dsb = cds.copy();
-        dsb.channelColorMode(DisplaySettings.ColorMode.COLOR);
-        Color[] chan_cols = new Color[] {Color.RED,Color.GREEN};
-        dsb.channelColors(chan_cols);
-        while(aborted_ == false){
-            coords = coords.copy().channel(l_r%2).build();
-            double oldpos = core_.getPosition();
-            core_.setPosition(oldpos+(rotation_control1.steps_per_revolution/2));
-            //core_.waitForDevice("RotStage");
-            core_.snapImage();
-            //convertTaggedImage takes (IMG/COORDS/METADATA)
-            curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
-            //
-            
-            if(l_r%2==0){
-                int width = curr_img.getWidth();
-                int height = curr_img.getHeight();
-                int ijType = curr_img.getImageJPixelType();
-                ImageProcessor proc = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
-                proc.flipHorizontal();
-                Metadata MD = curr_img.getMetadata();
-                curr_img = gui_.data().getImageJConverter().createImage(proc, coords, MD);
+        if(!calib_running){
+            //calib_implus.show();
+            calib_running = true;
+            //Kill live mode if running
+            gui_.live().setLiveMode(false);
+            set_working(true);
+            RewritableDatastore store = gui_.data().createRewritableRAMDatastore();
+            calib_display = gui_.displays().createDisplay(store);
+            Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
+            builder.channel(2);
+            Coords coords = builder.build();      
+            int l_r = 0;
+            Image curr_img;
+            System.out.println("init_calib");
+            DisplaySettings cds = calib_display.getDisplaySettings();
+            DisplaySettings.DisplaySettingsBuilder dsb = cds.copy();
+            dsb.channelColorMode(DisplaySettings.ColorMode.COLOR);
+            Color[] chan_cols = new Color[] {Color.RED,Color.GREEN};
+            dsb.channelColors(chan_cols);
+            calib_display.setDisplaySettings(dsb.build());
+            while(aborted_ == false){
+                coords = coords.copy().channel(l_r%2).build();
+                double oldpos = core_.getPosition();
+                core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
+                core_.waitForDevice("RotStage");
+                core_.snapImage();
+                //convertTaggedImage takes (IMG/COORDS/METADATA)
+                curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
+                //##TESTING
+                //calib_shortproc.setPixels(curr_img);
+                //calib_byteproc = calib_shortproc.convertToByteProcessor(true);
+                if(l_r%2==0){
+                    int width = curr_img.getWidth();
+                    int height = curr_img.getHeight();
+                    int ijType = curr_img.getImageJPixelType();
+                    ImageProcessor proc = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
+                    if(rotation_control1.is_axis_horizontal()){
+                        proc.flipVertical();
+                    } else {
+                        proc.flipHorizontal();
+                    }
+                    //calib_RGBproc.setChannel(1, calib_byteproc);
+                    Metadata MD = curr_img.getMetadata();
+                    curr_img = gui_.data().getImageJConverter().createImage(proc, coords, MD);
+                }
+                store.putImage(curr_img);
+                l_r += 1;
             }
-            
-            store.putImage(curr_img);
-            l_r += 1;
+            store.deleteAllImages();
+            calib_display.forceClosed();
+            reset_abort();
+        } else {;
+             abort();
         }
-        store.deleteAllImages();
-        calib_display.forceClosed();
-        reset_abort();
     }
 
     /**

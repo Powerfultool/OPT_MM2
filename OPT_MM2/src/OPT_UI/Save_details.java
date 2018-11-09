@@ -28,7 +28,7 @@ public class Save_details extends javax.swing.JPanel {
     }
     
     public String get_savechoice(){
-        return Save_choice.getItemAt(Save_choice.getSelectedIndex());
+        return Save_choice.getItemAt(Save_choice.getSelectedIndex()).toString();
     }    
     
     public String get_samplename(){
@@ -44,13 +44,13 @@ public class Save_details extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        Save_choice = new javax.swing.JComboBox<>();
+        Save_choice = new javax.swing.JComboBox();
         jLabel1 = new javax.swing.JLabel();
         save_path = new javax.swing.JTextField();
         sample_name = new javax.swing.JTextField();
         jLabel2 = new javax.swing.JLabel();
 
-        Save_choice.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Auto-path", "Selected path" }));
+        Save_choice.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Auto-path", "Selected path" }));
 
         jLabel1.setText("Save settings");
 
@@ -107,7 +107,7 @@ public class Save_details extends javax.swing.JPanel {
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JComboBox<String> Save_choice;
+    private javax.swing.JComboBox Save_choice;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JTextField sample_name;
