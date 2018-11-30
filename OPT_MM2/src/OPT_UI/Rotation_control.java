@@ -38,7 +38,11 @@ public class Rotation_control extends javax.swing.JPanel {
     }
     
     public boolean is_axis_horizontal(){
-        return axis_horizontal;
+        if (axis_horizontal){
+            return true;
+        } else {
+            return false;
+        }
     }
     
     public void set_axis_horizontal(boolean is_horz){

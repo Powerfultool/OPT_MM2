@@ -14,6 +14,9 @@ import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
 import java.awt.Color;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -22,6 +25,7 @@ import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import org.micromanager.Studio;
+import org.micromanager.data.ImageJConverter;
 
 import javax.swing.JOptionPane;
 import mmcorej.TaggedImage;
@@ -255,16 +259,27 @@ public class OPT_hostframe extends javax.swing.JFrame {
         abort();
     }
     
+    WindowListener listener = new WindowAdapter() {
+        public void windowClosing(WindowEvent w) {
+            abort();
+        }
+    };
+    
     public void run_calibration() throws Exception{
         if(!calib_running){
             gui_.live().setLiveMode(false);
             set_working(true);
             RewritableDatastore store = gui_.data().createRewritableRAMDatastore();        
             calib_display = gui_.displays().createDisplay(store);
+
+            //listener is still a bit iffy
+            calib_display.getAsWindow().addWindowListener(listener);
+
             Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
             builder = builder.time(0).channel(0);
             Image image = gui_.live().snap(false).get(0);
             Image reflected = image.copyAtCoords(image.getCoords());
+            ImageProcessor flipper = gui_.data().ij().createProcessor(reflected);
             int l_r = 0;
             double oldpos = core_.getPosition();
             while(aborted_ == false){
@@ -273,9 +288,22 @@ public class OPT_hostframe extends javax.swing.JFrame {
                 int chan_num = l_r%2;
                 builder.channel(chan_num);
                 image = gui_.live().snap(false).get(0);
-                image = image.copyAtCoords(builder.build());
-                reflected = image.copyAtCoords(builder.build());
-                store.putImage(image);
+                image = image.copyAtCoords(builder.build());               
+                if (chan_num == 0){
+                    store.putImage(image);
+                } else {
+                    //Have to use getRawPixelsCopy, as otherwise it doesn't work
+                    //Something to do with Image 'immutability' if it's passing a reference maybe?
+                    reflected = image.copyAtCoords(builder.build());
+                    flipper.setPixels(reflected.getRawPixelsCopy());
+                    if (rotation_control1.is_axis_horizontal()){
+                        flipper.flipVertical();
+                    } else {
+                        flipper.flipHorizontal();
+                    }
+                    reflected = gui_.data().ij().createImage(flipper, builder.build(), image.getMetadata());                    
+                    store.putImage(reflected);
+                }
                 l_r +=1;
                 core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
             }            
@@ -288,39 +316,6 @@ public class OPT_hostframe extends javax.swing.JFrame {
         }        
     }
     
-    public void run_calibration_old() throws Exception{
-        if(!calib_running){
-            gui_.live().setLiveMode(false);
-            set_working(true);
-            RewritableDatastore store = gui_.data().createRewritableRAMDatastore();        
-            calib_display = gui_.displays().createDisplay(store);
-            Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
-            builder = builder.time(0).channel(0);
-            Image image = gui_.live().snap(false).get(0);
-            Image reflected = image.copyAtCoords(image.getCoords());
-            int l_r = 0;
-            double oldpos = core_.getPosition();
-            while(aborted_ == false){
-                core_.waitForDevice(rotstagename);
-                oldpos = core_.getPosition();
-                int chan_num = l_r%2;
-                builder.channel(chan_num);
-                image = gui_.live().snap(false).get(0);
-                image = image.copyAtCoords(builder.build());
-                reflected = image.copyAtCoords(builder.build());
-                store.putImage(image);
-                l_r +=1;
-                core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
-            }            
-            store.deleteAllImages();
-            calib_display.forceClosed();
-            reset_abort();
-        } else {
-            JOptionPane.showMessageDialog(null, "System already in calibration mode!", "Hang on!", JOptionPane.INFORMATION_MESSAGE);
-            abort();
-        }        
-    }
-
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
