@@ -179,7 +179,7 @@ public class Rotation_control extends javax.swing.JPanel {
 
     private void run_acqActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_run_acqActionPerformed
         try {
-            parent_.run_acquisition();
+            parent_.run_acquisition_threaded();
         } catch (Exception ex) {
             Logger.getLogger(Rotation_control.class.getName()).log(Level.SEVERE, null, ex);
         }

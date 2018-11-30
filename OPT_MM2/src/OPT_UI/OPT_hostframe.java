@@ -8,6 +8,7 @@ package OPT_UI;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
@@ -21,6 +22,9 @@ import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import org.micromanager.Studio;
+
+import javax.swing.JOptionPane;
+import mmcorej.TaggedImage;
 
 import org.micromanager.data.Coords;
 import org.micromanager.data.Image;
@@ -47,9 +51,11 @@ public class OPT_hostframe extends javax.swing.JFrame {
     boolean calib_running = false;
     DisplayWindow calib_display;
     ImagePlus calib_implus;
+    ImageProcessor improc;
     ColorProcessor calib_RGBproc;
     ShortProcessor calib_shortproc;
     ByteProcessor calib_byteproc;
+    String rotstagename = "RotStage";
     
     public Thread calibThread;
     
@@ -85,6 +91,8 @@ public class OPT_hostframe extends javax.swing.JFrame {
             Logger.getLogger(OPT_hostframe.class.getName()).log(Level.SEVERE, null, ex);
         }
         gui_.live().setLiveMode(true);
+        
+        //calib_implus = new ImageProcessor();
     }
     
     public void abort(){
@@ -111,20 +119,23 @@ public class OPT_hostframe extends javax.swing.JFrame {
         progress_indicator1.set_working(working);
     }
 
-    public void run_acquisition() throws IOException, Exception{
+    public void run_acquisition_threaded() throws Exception{
+        Thread acqThread = new Thread(new Runnable() {
+               @Override
+               public void run() {
+                   try {
+                       run_acquisition();
+                   } catch (Exception ex) {
+                       Logger.getLogger(OPT_hostframe.class.getName()).log(Level.SEVERE, null, ex);
+                   }
+               }
+            });
+        acqThread.start();     
+    }
+    
+    public void run_acquisition() throws Exception{
+        //Make sure we can press the abort button...
         reset_abort();
-        int numproj = rotation_control1.get_numproj();
-        //Setup co-ordinates
-        Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
-        //###Can't use this until arbitrary axes can be saved...
-        //builder.index("projection",numproj);
-        builder.z(numproj);
-        Coords coords = builder.build();      
-
-        //Kill live mode if running
-        gui_.live().setLiveMode(false);
-        
-        //Make a datastore/window for the acquisition
         //###NEED TO FIX THE FORCED-PATH CASE
         String basedir = save_details1.get_savepath();
         String samplename = save_details1.get_samplename();
@@ -139,55 +150,199 @@ public class OPT_hostframe extends javax.swing.JFrame {
         }
         String append = "\\X";
         File saveloc = new File(fullpath);
-        while(saveloc.exists()){
-            System.out.println(fullpath);
-            if (savedetails.equalsIgnoreCase("Auto-path")){
-                fullpath = basedir+"\\"+samplename+"\\"+filterset+append;
-            } else {
-                fullpath = basedir+append;
-            }
-            append = append+"X";
-            saveloc = new File(fullpath);
-            saveloc.mkdirs();
+//        while(saveloc.exists()){
+//            System.out.println(fullpath);
+//            if (savedetails.equalsIgnoreCase("Auto-path")){
+//                fullpath = basedir+"\\"+samplename+"\\"+filterset+append;
+//            } else {
+//                fullpath = basedir+append;
+//            }
+//            append = append+"X";
+//            saveloc = new File(fullpath);
+//            saveloc.mkdirs();
+//        }
+        if(saveloc.exists()){
+            String titleBar = "ABORTING!";
+            String infoMessage = "FILE EXISTS!";
+            JOptionPane.showMessageDialog(null, infoMessage, "InfoBox: " + titleBar, JOptionPane.INFORMATION_MESSAGE);
+            abort();
         }
+        int numproj = rotation_control1.get_numproj();
+        //Kill live mode if running
+        gui_.live().setLiveMode(false);
+        //Setup a datastore
         Datastore store = gui_.data().createSinglePlaneTIFFSeriesDatastore(fullpath);
         DisplayWindow OPT_display = gui_.displays().createDisplay(store);
+        gui_.displays().manage(store);
+        //Setup co-ordinates
+        Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
+        builder.z(numproj);
+        Coords coords = builder.build();      
+
         Image curr_img;
-        int stepsize = (rotation_control1.zdist_per_revolution/rotation_control1.get_numproj());
-        
+        int stepsize = (rotation_control1.zdist_per_revolution/rotation_control1.get_numproj());       
         for(int pos = 0; pos<numproj; pos++){
             if(aborted_){
                 break;
             } else {
-                //###Can't use this until arbitrary axes can be saved...
-                //coords = coords.copy().index("projection", pos).build();
                 coords = coords.copy().z(pos).build();
-                double oldpos = core_.getPosition();
-                core_.setPosition(oldpos+stepsize);
-                core_.waitForDevice("RotStage");
+                double oldpos = core_.getPosition(rotstagename);
                 core_.snapImage();
+                core_.setPosition(rotstagename,oldpos+stepsize);
                 //convertTaggedImage takes (IMG/COORDS/METADATA)
                 curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
+                Image newimg = curr_img.copyAtCoords(coords);
                 store.putImage(curr_img);
-                OPT_display.getAsWindow().repaint();
+                progress_indicator1.set_progress((int) (100*(((double)pos+1.0)/(double)numproj)));
+                core_.waitForDevice(rotstagename);
             }
         }
-        store.freeze();
-        //If aborted, continue rotation to original position directly
-        //Reset abort
-        //Rename datastore/window
-        //If not aborted, save data
+        String titleBar = "Threaded popup";
+        String infoMessage = "Runs after the wimdow should appear...";
+        JOptionPane.showMessageDialog(null, infoMessage, "InfoBox: " + titleBar, JOptionPane.INFORMATION_MESSAGE);
+        gui_.live().setLiveMode(true);
     }
-    
+            
     public void run_calibration_threaded() {                                                    
     // starts sequence in new thread
         calibThread = new Thread(new Calibrationthread(this));
         calibThread.start();
     }      
     
+    public void run_test(){
+        gui_.live().setLiveMode(false);
+        int imwidth = (int)core_.getImageWidth();
+        int imheight = (int)core_.getImageHeight();
+        set_working(true);        
+        try {
+            core_.snapImage();
+        } catch (Exception ex) {
+            Logger.getLogger(OPT_hostframe.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(null, "Exception caught on snap", "Oops!", JOptionPane.INFORMATION_MESSAGE);
+        }
+        Image curr_img = null;
+        Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
+        builder.channel(2);
+        Coords coords = builder.build();      
+        try {
+            curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
+            JOptionPane.showMessageDialog(null, "Img size: "+imwidth+","+imheight, "Info", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            Logger.getLogger(OPT_hostframe.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(null, "Exception caught on show", "Oops!", JOptionPane.INFORMATION_MESSAGE);
+        }
+//        try {
+            calib_shortproc = new ShortProcessor(imwidth,imheight);
+//        } catch (Exception ex) {
+//            JOptionPane.showMessageDialog(null, "Exception caught on create processor", "Oops!", JOptionPane.INFORMATION_MESSAGE);
+//        }
+//        try {
+            calib_shortproc.setPixels(curr_img.getRawPixels());
+//        } catch (Exception ex) {
+//            JOptionPane.showMessageDialog(null, "Exception caught on set pixels", "Oops!", JOptionPane.INFORMATION_MESSAGE);
+//        }        
+        try {
+            //calib_implus.
+            //calib_implus.setProcessor("LALALA",calib_shortproc);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(null, "Exception caught on set processor", "Oops!", JOptionPane.INFORMATION_MESSAGE);
+        }
+        try {
+            calib_implus.updateAndDraw();        
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(null, "Exception caught on draw", "Oops!", JOptionPane.INFORMATION_MESSAGE);
+        }        
+        abort();
+    }
+    
     public void run_calibration() throws Exception{
         if(!calib_running){
-            //calib_implus.show();
+            gui_.live().setLiveMode(false);
+            set_working(true);
+            RewritableDatastore store = gui_.data().createRewritableRAMDatastore();        
+            calib_display = gui_.displays().createDisplay(store);
+            Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
+            builder.channel(2);
+            Coords coords = builder.build();      
+            int l_r = 0;
+            Image curr_img;
+            
+            DisplaySettings cds = calib_display.getDisplaySettings();
+            DisplaySettings.DisplaySettingsBuilder dsb = cds.copy();
+            dsb.channelColorMode(DisplaySettings.ColorMode.COMPOSITE);
+            Color[] chan_cols = new Color[] {Color.RED,Color.GREEN};
+            dsb.channelColors(chan_cols);
+            calib_display.setDisplaySettings(dsb.build());
+            
+            core_.snapImage();
+            TaggedImage tmp = core_.getTaggedImage();
+            Image newimg = gui_.data().convertTaggedImage(tmp);
+            int img_width = newimg.getWidth();
+            int img_height = newimg.getHeight();
+            int b_p_p = newimg.getBytesPerPixel();
+            ImagePlus ip1 = new ImagePlus();
+            ImageStack is1 = new ImageStack();
+            ip1.createImagePlus();
+
+            while(aborted_ == false){
+                int chan_num = l_r%2;
+                coords = coords.copy().channel(chan_num).build();
+                double oldpos = core_.getPosition();
+                core_.waitForDevice(rotstagename);
+                core_.snapImage();
+                core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
+                tmp = core_.getTaggedImage();
+                if(chan_num==0){
+                    Image image1 = gui_.data().convertTaggedImage(tmp);
+                    image1 = image1.copyAtCoords(coords);
+                    store.putImage(image1);
+                } else {
+                    Image image2 = gui_.data().convertTaggedImage(tmp);
+                    image2 = image2.copyAtCoords(coords);                    
+                    store.putImage(image2);
+                }
+                l_r += 1;                
+            }            
+            
+//            core_.snapImage();
+//            TaggedImage tmp = core_.getTaggedImage();
+//            Image newimg = gui_.data().convertTaggedImage(tmp);
+//            ImageProcessor proc1 = new ShortProcessor(newimg.getWidth(), newimg.getHeight());
+//            ImageProcessor proc2 = new ShortProcessor(newimg.getWidth(), newimg.getHeight());
+//            while(aborted_ == false){
+//                int chan_num = l_r%2;
+//                coords = coords.copy().channel(chan_num).build();
+//                double oldpos = core_.getPosition();
+//                core_.waitForDevice(rotstagename);
+//                core_.snapImage();
+//                core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
+//                tmp = core_.getTaggedImage();
+//                if(l_r%2==0){
+//                    Image image1 = gui_.data().convertTaggedImage(tmp);
+//                    image1 = image1.copyAtCoords(image1.getCoords().copy().channel(0).build());
+//                    store.putImage(image1);
+//                } else {
+//                    Image image2 = gui_.data().convertTaggedImage(tmp);
+//                    proc2.setPixels(image2.getRawPixelsCopy());
+//                    proc2.flipVertical();
+//                    newimg = gui_.data().createImage(proc2.getPixelsCopy(), image2.getWidth(), image2.getHeight(), image2.getBytesPerPixel(), image2.getNumComponents(), coords, image2.getMetadata());
+//                    image2 = image2.copyAtCoords(image2.getCoords().copy().channel(1).build());                    
+//                    store.putImage(image2);
+//                }
+//                l_r += 1;                
+//            }
+            store.deleteAllImages();
+            calib_display.forceClosed();
+            reset_abort();
+        } else {
+            JOptionPane.showMessageDialog(null, "System already in calibration mode!", "Hang on!", JOptionPane.INFORMATION_MESSAGE);
+            abort();
+        }
+    }
+    
+    public void run_calibration_old() throws Exception{
+        if(!calib_running){
+            boolean cip = false;
             calib_running = true;
             //Kill live mode if running
             gui_.live().setLiveMode(false);
@@ -206,38 +361,47 @@ public class OPT_hostframe extends javax.swing.JFrame {
             Color[] chan_cols = new Color[] {Color.RED,Color.GREEN};
             dsb.channelColors(chan_cols);
             calib_display.setDisplaySettings(dsb.build());
+            //Get img for ref size etc
+            core_.snapImage();
+            curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
+            int width = curr_img.getWidth();
+            int height = curr_img.getHeight();
+            int ijType = curr_img.getImageJPixelType();            
+            ImageProcessor proc_L = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
+            ImageProcessor proc_R = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
             while(aborted_ == false){
                 coords = coords.copy().channel(l_r%2).build();
                 double oldpos = core_.getPosition();
                 core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
-                core_.waitForDevice("RotStage");
+                core_.waitForDevice(rotstagename);
                 core_.snapImage();
                 //convertTaggedImage takes (IMG/COORDS/METADATA)
                 curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
-                //##TESTING
-                //calib_shortproc.setPixels(curr_img);
-                //calib_byteproc = calib_shortproc.convertToByteProcessor(true);
-                if(l_r%2==0){
-                    int width = curr_img.getWidth();
-                    int height = curr_img.getHeight();
-                    int ijType = curr_img.getImageJPixelType();
-                    ImageProcessor proc = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
-                    if(rotation_control1.is_axis_horizontal()){
-                        proc.flipVertical();
-                    } else {
-                        proc.flipHorizontal();
-                    }
-                    //calib_RGBproc.setChannel(1, calib_byteproc);
-                    Metadata MD = curr_img.getMetadata();
-                    curr_img = gui_.data().getImageJConverter().createImage(proc, coords, MD);
+//                if(l_r%2==0){
+//                    proc_R = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
+//                    if(rotation_control1.is_axis_horizontal()){
+//                        proc_R.flipVertical();
+//                    } else {
+//                        proc_R.flipHorizontal();
+//                    }
+//                    Metadata MD = curr_img.getMetadata();
+//                    curr_img = gui_.data().getImageJConverter().createImage(proc_R, coords, MD);
+//                    Image ci_copy = curr_img.copyAtCoords(coords);
+//                    store.putImage(ci_copy);
+//                } else {
+                    store.putImage(curr_img);
+//                }
+                calib_implus.getProcessor().setPixels(curr_img);
+                if(cip == false){
+                    calib_implus.show();
+                    cip = true;
                 }
-                store.putImage(curr_img);
                 l_r += 1;
             }
             store.deleteAllImages();
             calib_display.forceClosed();
             reset_abort();
-        } else {;
+        } else {
              abort();
         }
     }
