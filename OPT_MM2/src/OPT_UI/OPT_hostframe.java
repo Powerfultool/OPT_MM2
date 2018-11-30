@@ -262,148 +262,63 @@ public class OPT_hostframe extends javax.swing.JFrame {
             RewritableDatastore store = gui_.data().createRewritableRAMDatastore();        
             calib_display = gui_.displays().createDisplay(store);
             Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
-            builder.channel(2);
-            Coords coords = builder.build();      
+            builder = builder.time(0).channel(0);
+            Image image = gui_.live().snap(false).get(0);
+            Image reflected = image.copyAtCoords(image.getCoords());
             int l_r = 0;
-            Image curr_img;
-            
-            DisplaySettings cds = calib_display.getDisplaySettings();
-            DisplaySettings.DisplaySettingsBuilder dsb = cds.copy();
-            dsb.channelColorMode(DisplaySettings.ColorMode.COMPOSITE);
-            Color[] chan_cols = new Color[] {Color.RED,Color.GREEN};
-            dsb.channelColors(chan_cols);
-            calib_display.setDisplaySettings(dsb.build());
-            
-            core_.snapImage();
-            TaggedImage tmp = core_.getTaggedImage();
-            Image newimg = gui_.data().convertTaggedImage(tmp);
-            int img_width = newimg.getWidth();
-            int img_height = newimg.getHeight();
-            int b_p_p = newimg.getBytesPerPixel();
-            ImagePlus ip1 = new ImagePlus();
-            ImageStack is1 = new ImageStack();
-            ip1.createImagePlus();
-
+            double oldpos = core_.getPosition();
             while(aborted_ == false){
-                int chan_num = l_r%2;
-                coords = coords.copy().channel(chan_num).build();
-                double oldpos = core_.getPosition();
                 core_.waitForDevice(rotstagename);
-                core_.snapImage();
+                oldpos = core_.getPosition();
+                int chan_num = l_r%2;
+                builder.channel(chan_num);
+                image = gui_.live().snap(false).get(0);
+                image = image.copyAtCoords(builder.build());
+                reflected = image.copyAtCoords(builder.build());
+                store.putImage(image);
+                l_r +=1;
                 core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
-                tmp = core_.getTaggedImage();
-                if(chan_num==0){
-                    Image image1 = gui_.data().convertTaggedImage(tmp);
-                    image1 = image1.copyAtCoords(coords);
-                    store.putImage(image1);
-                } else {
-                    Image image2 = gui_.data().convertTaggedImage(tmp);
-                    image2 = image2.copyAtCoords(coords);                    
-                    store.putImage(image2);
-                }
-                l_r += 1;                
             }            
-            
-//            core_.snapImage();
-//            TaggedImage tmp = core_.getTaggedImage();
-//            Image newimg = gui_.data().convertTaggedImage(tmp);
-//            ImageProcessor proc1 = new ShortProcessor(newimg.getWidth(), newimg.getHeight());
-//            ImageProcessor proc2 = new ShortProcessor(newimg.getWidth(), newimg.getHeight());
-//            while(aborted_ == false){
-//                int chan_num = l_r%2;
-//                coords = coords.copy().channel(chan_num).build();
-//                double oldpos = core_.getPosition();
-//                core_.waitForDevice(rotstagename);
-//                core_.snapImage();
-//                core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
-//                tmp = core_.getTaggedImage();
-//                if(l_r%2==0){
-//                    Image image1 = gui_.data().convertTaggedImage(tmp);
-//                    image1 = image1.copyAtCoords(image1.getCoords().copy().channel(0).build());
-//                    store.putImage(image1);
-//                } else {
-//                    Image image2 = gui_.data().convertTaggedImage(tmp);
-//                    proc2.setPixels(image2.getRawPixelsCopy());
-//                    proc2.flipVertical();
-//                    newimg = gui_.data().createImage(proc2.getPixelsCopy(), image2.getWidth(), image2.getHeight(), image2.getBytesPerPixel(), image2.getNumComponents(), coords, image2.getMetadata());
-//                    image2 = image2.copyAtCoords(image2.getCoords().copy().channel(1).build());                    
-//                    store.putImage(image2);
-//                }
-//                l_r += 1;                
-//            }
             store.deleteAllImages();
             calib_display.forceClosed();
             reset_abort();
         } else {
             JOptionPane.showMessageDialog(null, "System already in calibration mode!", "Hang on!", JOptionPane.INFORMATION_MESSAGE);
             abort();
-        }
+        }        
     }
     
     public void run_calibration_old() throws Exception{
         if(!calib_running){
-            boolean cip = false;
-            calib_running = true;
-            //Kill live mode if running
             gui_.live().setLiveMode(false);
             set_working(true);
-            RewritableDatastore store = gui_.data().createRewritableRAMDatastore();
+            RewritableDatastore store = gui_.data().createRewritableRAMDatastore();        
             calib_display = gui_.displays().createDisplay(store);
             Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
-            builder.channel(2);
-            Coords coords = builder.build();      
+            builder = builder.time(0).channel(0);
+            Image image = gui_.live().snap(false).get(0);
+            Image reflected = image.copyAtCoords(image.getCoords());
             int l_r = 0;
-            Image curr_img;
-            System.out.println("init_calib");
-            DisplaySettings cds = calib_display.getDisplaySettings();
-            DisplaySettings.DisplaySettingsBuilder dsb = cds.copy();
-            dsb.channelColorMode(DisplaySettings.ColorMode.COLOR);
-            Color[] chan_cols = new Color[] {Color.RED,Color.GREEN};
-            dsb.channelColors(chan_cols);
-            calib_display.setDisplaySettings(dsb.build());
-            //Get img for ref size etc
-            core_.snapImage();
-            curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
-            int width = curr_img.getWidth();
-            int height = curr_img.getHeight();
-            int ijType = curr_img.getImageJPixelType();            
-            ImageProcessor proc_L = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
-            ImageProcessor proc_R = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
+            double oldpos = core_.getPosition();
             while(aborted_ == false){
-                coords = coords.copy().channel(l_r%2).build();
-                double oldpos = core_.getPosition();
-                core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
                 core_.waitForDevice(rotstagename);
-                core_.snapImage();
-                //convertTaggedImage takes (IMG/COORDS/METADATA)
-                curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
-//                if(l_r%2==0){
-//                    proc_R = ImageUtils.makeProcessor(ijType, width, height, curr_img.getRawPixelsCopy());            
-//                    if(rotation_control1.is_axis_horizontal()){
-//                        proc_R.flipVertical();
-//                    } else {
-//                        proc_R.flipHorizontal();
-//                    }
-//                    Metadata MD = curr_img.getMetadata();
-//                    curr_img = gui_.data().getImageJConverter().createImage(proc_R, coords, MD);
-//                    Image ci_copy = curr_img.copyAtCoords(coords);
-//                    store.putImage(ci_copy);
-//                } else {
-                    store.putImage(curr_img);
-//                }
-                calib_implus.getProcessor().setPixels(curr_img);
-                if(cip == false){
-                    calib_implus.show();
-                    cip = true;
-                }
-                l_r += 1;
-            }
+                oldpos = core_.getPosition();
+                int chan_num = l_r%2;
+                builder.channel(chan_num);
+                image = gui_.live().snap(false).get(0);
+                image = image.copyAtCoords(builder.build());
+                reflected = image.copyAtCoords(builder.build());
+                store.putImage(image);
+                l_r +=1;
+                core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
+            }            
             store.deleteAllImages();
             calib_display.forceClosed();
             reset_abort();
         } else {
-             abort();
-        }
+            JOptionPane.showMessageDialog(null, "System already in calibration mode!", "Hang on!", JOptionPane.INFORMATION_MESSAGE);
+            abort();
+        }        
     }
 
     /**
