@@ -60,7 +60,8 @@ public class OPT_hostframe extends javax.swing.JFrame {
     ShortProcessor calib_shortproc;
     ByteProcessor calib_byteproc;
     String rotstagename = "RotStage";
-    
+    Datastore acq_store = null;
+
     public Thread calibThread;
     
     /**
@@ -175,9 +176,9 @@ public class OPT_hostframe extends javax.swing.JFrame {
         //Kill live mode if running
         gui_.live().setLiveMode(false);
         //Setup a datastore
-        Datastore store = gui_.data().createSinglePlaneTIFFSeriesDatastore(fullpath);
-        DisplayWindow OPT_display = gui_.displays().createDisplay(store);
-        gui_.displays().manage(store);
+        acq_store = gui_.data().createSinglePlaneTIFFSeriesDatastore(fullpath);
+        DisplayWindow OPT_display = gui_.displays().createDisplay(acq_store);
+        gui_.displays().manage(acq_store);
         //Setup co-ordinates
         Coords.CoordsBuilder builder = gui_.data().getCoordsBuilder();
         builder.z(numproj);
@@ -196,7 +197,7 @@ public class OPT_hostframe extends javax.swing.JFrame {
                 //convertTaggedImage takes (IMG/COORDS/METADATA)
                 curr_img = gui_.data().convertTaggedImage(core_.getTaggedImage(),coords,null);
                 Image newimg = curr_img.copyAtCoords(coords);
-                store.putImage(curr_img);
+                acq_store.putImage(curr_img);
                 progress_indicator1.set_progress((int) (100*(((double)pos+1.0)/(double)numproj)));
                 core_.waitForDevice(rotstagename);
             }
@@ -269,8 +270,8 @@ public class OPT_hostframe extends javax.swing.JFrame {
         if(!calib_running){
             gui_.live().setLiveMode(false);
             set_working(true);
-            RewritableDatastore store = gui_.data().createRewritableRAMDatastore();        
-            calib_display = gui_.displays().createDisplay(store);
+            RewritableDatastore cal_store = gui_.data().createRewritableRAMDatastore();        
+            calib_display = gui_.displays().createDisplay(cal_store);
 
             //listener is still a bit iffy
             calib_display.getAsWindow().addWindowListener(listener);
@@ -290,7 +291,7 @@ public class OPT_hostframe extends javax.swing.JFrame {
                 image = gui_.live().snap(false).get(0);
                 image = image.copyAtCoords(builder.build());               
                 if (chan_num == 0){
-                    store.putImage(image);
+                    cal_store.putImage(image);
                 } else {
                     //Have to use getRawPixelsCopy, as otherwise it doesn't work
                     //Something to do with Image 'immutability' if it's passing a reference maybe?
@@ -302,12 +303,12 @@ public class OPT_hostframe extends javax.swing.JFrame {
                         flipper.flipHorizontal();
                     }
                     reflected = gui_.data().ij().createImage(flipper, builder.build(), image.getMetadata());                    
-                    store.putImage(reflected);
+                    cal_store.putImage(reflected);
                 }
                 l_r +=1;
                 core_.setPosition(oldpos+(rotation_control1.zdist_per_revolution/2));
             }            
-            store.deleteAllImages();
+            cal_store.deleteAllImages();
             calib_display.forceClosed();
             reset_abort();
         } else {
