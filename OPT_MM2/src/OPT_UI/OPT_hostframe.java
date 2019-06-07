@@ -22,6 +22,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import mmcorej.CMMCore;
 import org.micromanager.Studio;
@@ -71,17 +72,17 @@ public class OPT_hostframe extends javax.swing.JFrame {
         frame_ = this;            
 //        frame_.setIconImage(Toolkit.getDefaultToolkit().getImage(getClass().getResource("HCAicon.png")));
 //        frame_.setTitle("OpenHCA controller for Micro-manager 2");        
-//        frame_.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-//        frame_.addWindowListener(new WindowAdapter() {
-//            @Override
-//            public void windowClosing(WindowEvent we) {
-//                if (true == confirmQuit()){
-//                    dispose();
-//                } else {
-//                    frame_.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-//                }
-//            }
-//        });          
+        frame_.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        frame_.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent we) {
+                if (true == confirmQuit()){
+                    frame_.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+                } else {
+                    frame_.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+                }
+            }
+        });           
         gui_ = gui_ref;
         core_ = gui_.getCMMCore();
         initComponents();
@@ -98,6 +99,15 @@ public class OPT_hostframe extends javax.swing.JFrame {
         gui_.live().setLiveMode(true);
         
         //calib_implus = new ImageProcessor();
+    }
+    
+    private boolean confirmQuit() {
+        int n = JOptionPane.showConfirmDialog(frame_,
+                "Quit: are you sure?", "Quit", JOptionPane.YES_NO_OPTION);
+        if (n == JOptionPane.YES_OPTION) {
+            return true;
+        }
+            return false;
     }
     
     public void abort(){
