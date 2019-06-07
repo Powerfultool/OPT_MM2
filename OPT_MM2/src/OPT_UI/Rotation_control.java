@@ -116,6 +116,11 @@ public class Rotation_control extends javax.swing.JPanel {
         });
 
         jTextField1.setText("2000");
+        jTextField1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTextField1ActionPerformed(evt);
+            }
+        });
 
         jLabel3.setText("z-dist/rev");
 
@@ -178,7 +183,7 @@ public class Rotation_control extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     private void usteps_per_revActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_usteps_per_revActionPerformed
-        // TODO add your handling code here:
+        usteps_per_revolution =  Integer.parseInt(usteps_per_rev.getText()); 
     }//GEN-LAST:event_usteps_per_revActionPerformed
 
     private void run_acqActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_run_acqActionPerformed
@@ -204,6 +209,10 @@ public class Rotation_control extends javax.swing.JPanel {
     private void cam_orientActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cam_orientActionPerformed
         set_axis_horizontal(cam_orient.isSelected());
     }//GEN-LAST:event_cam_orientActionPerformed
+
+    private void jTextField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField1ActionPerformed
+        zdist_per_revolution = Integer.parseInt(jTextField1.getText());
+    }//GEN-LAST:event_jTextField1ActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
